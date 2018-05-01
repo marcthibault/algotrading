@@ -18,7 +18,7 @@ class Signal:
         self.computed = True
 
     def save(self, file):
-        if self.computed():
+        if self.computed:
             self.signal.to_csv("../results/" + file + ".csv")
             print(">> Results saved in " + file + ".")
         else:
