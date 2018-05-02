@@ -4,8 +4,13 @@ Mean reversion using residuals from GARCH-like methods.
 
 ## Data
 
-The data used is daily close and volume of US stocks (adjusted). Let's say we trade at
-close for now. This hypothesis is there to avoid taking into account execution issues right now.
+The data contains:
+- adjusted close price
+- adjusted daily volume
+- past returns one day (close to close)
+- future returns one day (close to close)
+
+Let's say we trade at close for now. This hypothesis is there to avoid taking into account execution issues right now.
 The dataframe has a two-level index : date and stocks (named 'date' and 'ticker').
 
 
