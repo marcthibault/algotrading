@@ -8,17 +8,23 @@ Basic signal computation class.
 class Signal:
     def __init__(self, data):
         self.data = data
-        self.computed = False
+        self._computed = False
 
-    def compute(self, ):
-        self.signal = pd.Series()
-        self._computed()
+    def get_signal(self):
+        if ~self._computed:
+            self._compute()
+            self._computed = True
+            self.signal = self.signal.rename('signal')
+        return self.signal
 
-    def _computed(self, ):
-        self.computed = True
+    def compute(self):
+        if ~self._computed:
+            self._compute()
+            self._computed = True
+            self.signal = self.signal.rename('signal')
 
     def save(self, file):
-        if self.computed:
+        if self._computed:
             self.signal.to_csv("../results/" + file + ".csv")
             print(">> Results saved in " + file + ".")
         else:
