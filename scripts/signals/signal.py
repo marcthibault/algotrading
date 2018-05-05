@@ -7,7 +7,7 @@ Basic signal computation class.
 
 class Signal:
     def __init__(self, data):
-        self.data = data
+        self.data = data.copy()
         self._computed = False
 
     def get_signal(self):
