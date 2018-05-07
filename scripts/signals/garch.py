@@ -1,9 +1,9 @@
 from .signal import Signal
 import numpy as np
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from scipy.linalg import sqrtm
-from numba import jit
+#from numba import jit
 from arch import arch_model
 from tqdm import tqdm
 import itertools

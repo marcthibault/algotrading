@@ -32,4 +32,4 @@ print('rbt: ' + "{0:.3f}".format(100 * data_perf.perf.groupby(
     level=0).sum().sum() / data_perf.to.groupby(level=0).sum().sum()) + "%")
 print('holding: ' + "{0:.2f}".format(2 * data_perf['not'].groupby(
     level=0).sum().sum() / data_perf.to.groupby(level=0).sum().sum()))
-data_perf.perf.groupby('date').sum().cumsum().plot(figsize=(12, 7))
+# data_perf.perf.groupby('date').sum().cumsum().plot(figsize=(12, 7))
