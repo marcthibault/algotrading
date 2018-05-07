@@ -62,9 +62,10 @@ class CCC_GARCH(Signal):
 
         self.data = self.data.loc[start_date:end_date]
         self.data = self.data.ffill().bfill()
-        print(self.data)
+
         idx = self.data.index.get_level_values(0).unique()
-        for k, date in enumerate(idx[self.n_past:]):
+        self.data["signal"] = 0.0
+        for k, date in enumerate(idx[self.n_past:-self.n_fit]):
             print(date)
             past_date = idx[k]
             future_date = idx[k + self.n_fit + self.n_past]
@@ -73,16 +74,13 @@ class CCC_GARCH(Signal):
             index_temp = temp_filter.loc[temp_filter.values].index.values
             temp_prices = df1["close"].unstack().loc[:, index_temp]
 
-            print(temp_prices.index)
-
             p = temp_prices.values.T
             r = np.log(p[:, 1:]) - np.log(p[:, :-1])
             signal = self.computeOneSignal(r, k + self.n_past, self.n_past, self.n_fit)
-            print(signal)
-            # self.signal.iloc[i, :] = 
-            input()
+
+            self.data.loc[(future_date, list(index_temp)), "signal"] = signal
         
-        self._computed()
+        self._computed = True
 
     def computeOneSignal(self, r, current_index, n_fit, n_predict, N=10000):
         if current_index < n_fit:
@@ -95,9 +93,11 @@ class CCC_GARCH(Signal):
         signal = np.zeros(n)
         self._estimate(r_past)
         for i in range(n):
-            proba = self._computeProbabilityDistributionGaussian(i, r_past, r_future, N=N)
-            signal[i] = self.computeQuantile(proba, moved[i])
-
+            try :
+                proba = self._computeProbabilityDistributionGaussian(i, r_past, r_future, N=N)
+                signal[i] = self.computeQuantile(proba, moved[i])
+            except:
+                signal[i] = 0.0
         return signal
 
     def _estimate(self, r):
@@ -108,7 +108,7 @@ class CCC_GARCH(Signal):
 
         for i in range(r.shape[0]):
             am = arch_model(r[i])
-            res = am.fit()
+            res = am.fit(disp="off")
             mu[i, 0], w[i, 0], alpha[i, 0], beta[i, 0] = res.params.values
 
         mu = np.nan_to_num(mu)
@@ -151,8 +151,6 @@ class CCC_GARCH(Signal):
         """ 
         log = np.zeros(N)
         initial_sigma = self._getLastVariance(r)
-        print(initial_sigma)
-        print(self.R)
 
         n_step = rr.shape[1]
         m = r.shape[0]
@@ -186,7 +184,7 @@ class CCC_GARCH(Signal):
     def computeQuantile(proba, value):
         p = 0
         i = 0
-        while proba[0, i] < value:
+        while i < proba.shape[1] and proba[0, i] < value:
             p += proba[1, i]
             i +=1
 
