@@ -1,0 +1,8 @@
+scipy
+matplotlib
+numpy
+pandas
+quandl
+tqdm
+arch
+numba

@@ -54,11 +54,11 @@ class CCC_GARCH(Signal):
         return r
 
     
-    def compute(self, start_date=None, end_date=None):
+    def _compute(self, start_date=None, end_date=None):
         if start_date is None:
-            start_date = "01-01-1970"
+            start_date = self.data.index.get_level_values(0)[0]
         if end_date is None:
-            end_date = "01-01-2030"
+            end_date = self.data.index.get_level_values(0)[-1]
 
         self.data = self.data.loc[start_date:end_date]
         self.data = self.data.ffill().bfill()
@@ -70,17 +70,18 @@ class CCC_GARCH(Signal):
             past_date = idx[k]
             future_date = idx[k + self.n_fit + self.n_past]
             df1 = self.data.loc[past_date:future_date]
-            temp_filter = (df1.loc[date, "filter"] == 1)
+            temp_filter = (df1.loc[future_date, "filter"] == 1)
             index_temp = temp_filter.loc[temp_filter.values].index.values
-            temp_prices = df1["close"].unstack().loc[:, index_temp]
+            temp_prices = df1["adj_close"].unstack().loc[:, index_temp]
 
             p = temp_prices.values.T
             r = np.log(p[:, 1:]) - np.log(p[:, :-1])
-            signal = self.computeOneSignal(r, k + self.n_past, self.n_past, self.n_fit)
+            signal = self.computeOneSignal(r, self.n_past, self.n_past, self.n_fit)
 
             self.data.loc[(future_date, list(index_temp)), "signal"] = signal
         
         self._computed = True
+        self.signal = self.data.loc[:, "signal"]
 
     def computeOneSignal(self, r, current_index, n_fit, n_predict, N=10000):
         if current_index < n_fit:
@@ -93,7 +94,7 @@ class CCC_GARCH(Signal):
         signal = np.zeros(n)
         self._estimate(r_past)
         for i in range(n):
-            try :
+            try:
                 proba = self._computeProbabilityDistributionGaussian(i, r_past, r_future, N=N)
                 signal[i] = self.computeQuantile(proba, moved[i])
             except:
