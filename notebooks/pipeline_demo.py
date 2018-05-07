@@ -8,11 +8,11 @@ raw_data = pd.read_csv('../data/data_f2009.csv', parse_dates=['date']).set_index
 data = raw_data.sort_index()
 
 # %% filter data
-nb_stocks = 1
+nb_stocks = 100
 data['filter'] = VolumeFilter(data, nb_stocks).get_filter()
 
 # %% create signal
-mr_signal = CCC_GARCH(data, n_past=30, n_fit=1)
+mr_signal = CCC_GARCH(data, n_past=100, n_fit=1)
 data['signal'] = mr_signal.get_signal()
 
 # %% compute perfs

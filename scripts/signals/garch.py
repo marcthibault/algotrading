@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.linalg import sqrtm
 from numba import jit
 from arch import arch_model
-
+from tqdm import tqdm
 import itertools
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
@@ -65,7 +65,7 @@ class CCC_GARCH(Signal):
 
         idx = self.data.index.get_level_values(0).unique()
         self.data["signal"] = 0.0
-        for k, date in enumerate(idx[self.n_past:-self.n_fit]):
+        for k, date in enumerate(tqdm(idx[self.n_past:-self.n_fit])):
             print(date)
             past_date = idx[k]
             future_date = idx[k + self.n_fit + self.n_past]
