@@ -118,10 +118,8 @@ class CCC_GARCH(Signal):
 
         eps, sigma = CCC_GARCH._recoverVariables(r, mu, w, alpha, beta)
 
-        eps_next = eps[:, 1:]
-        sigma_next = sigma[:, 1:]
-        residuals = np.zeros(eps_next.shape)
-        residuals[eps_next != 0.] = eps_next[eps_next != 0.] / np.sqrt(sigma_next[eps_next != 0.])
+        residuals = np.zeros(sigma.shape)
+        residuals[sigma != 0.] = eps[eps != 0.] / np.sqrt(sigma[sigma != 0.])
 
         R = np.corrcoef(residuals)
         self.set_parameters(mu, w, alpha, beta, R)
