@@ -127,10 +127,13 @@ class CCC_GARCH(Signal):
     def _recoverVariables(r, mu, w, alpha, beta, initial_sigma=None):
         eps = r - mu
         sigma = np.zeros_like(r)
+        alphabeta = alpha + beta
+        alphabeta = np.minimum(alphabeta, 1 - 1e-4)
         if initial_sigma is None:
-            initial_sigma = w / (1 - alpha - beta)
+            initial_sigma = w / (1 - alphabeta)
 
         initial_sigma[np.isinf(initial_sigma)[:, 0]] = w[np.isinf(initial_sigma)[:, 0]]
+        initial_sigma = np.maximum(np.minimum(initial_sigma, 1.), 0.)
 
         sigma[:, 0:1] = initial_sigma
         for i in range(1, r.shape[1]):
