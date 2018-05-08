@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from scripts.filters.fixed_volume_fltr import FixedVolumeFilter
 from scripts.filters.volume_fltr import VolumeFilter
 from scripts.signals.garch import CCC_GARCH
 
@@ -9,7 +10,7 @@ data = raw_data.sort_index()
 
 # %% filter data
 nb_stocks = 100
-data['filter'] = VolumeFilter(data, nb_stocks).get_filter()
+data['filter'] = FixedVolumeFilter(data, nb_stocks, "2009-01-05").get_filter()
 
 # %% create signal
 mr_signal = CCC_GARCH(data, n_past=100, n_fit=1)
