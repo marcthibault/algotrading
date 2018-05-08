@@ -1,6 +1,6 @@
-from .signal import Signal
 import numpy as np
-import pandas as pd
+
+from .signal import Signal
 
 '''
 Mean reversion signal, being 1 - price/average.
@@ -14,7 +14,7 @@ class MeanReversion(Signal):
 
     def _compute(self):
         self.data['ewma'] = self.data.groupby(
-            level=1).close.apply(lambda x: x.ewm(alpha=self.decay_rate).mean())
+            level=1).adj_close.apply(lambda x: x.ewm(alpha=self.decay_rate).mean())
 
-        self.signal = 1 - self.data.close / \
+        self.signal = 1 - self.data.adj_close / \
             self.data.ewma.groupby(level=1).shift()

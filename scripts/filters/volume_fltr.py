@@ -9,7 +9,7 @@ class VolumeFilter(Filter):
         self.last_days = last_days
 
     def _compute(self):
-        self.data['past_volume'] = self.data.groupby(level=1).volume.rolling(
-            self.last_days, min_periods=1).mean().fillna(0)
-        self.filter = self.data.past_volume.groupby(level=0).apply(
-            lambda x: np.argsort(x) < self.nb_stocks)
+        past_volume = self.data.groupby(level=1).adj_volume.rolling(self.last_days, min_periods=1).mean().fillna(0)
+        past_volume.index = past_volume.index.droplevel(0)
+        self.data['past_volume'] = past_volume
+        self.filter = self.data.past_volume.groupby(level=0).apply(lambda x: np.argsort(-x) < self.nb_stocks)
