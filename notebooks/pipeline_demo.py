@@ -13,7 +13,7 @@ nb_stocks = 100
 data['filter'] = FixedVolumeFilter(data, nb_stocks, "2009-01-05").get_filter()
 
 # %% create signal
-mr_signal = CCC_GARCH(data, n_past=100, n_fit=1)
+mr_signal = CCC_GARCH(data, n_past=100, n_fit=4)
 data['signal'] = mr_signal.get_signal()
 
 # %% compute perfs
