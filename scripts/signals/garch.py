@@ -92,15 +92,33 @@ class CCC_GARCH(Signal):
         moved = np.prod(1 + r_future, axis=1) - 1
         signal = np.zeros(n)
         self._estimate(r_past)
+
+        wrong_index = np.where(self.w == 0)[0]
+        good_index = [i for i in range(n) if i not in wrong_index]
+
+        self.R = self.R[good_index, :][:, good_index]
+        self.mu = self.mu[good_index]
+        self.alpha = self.alpha[good_index]
+        self.beta = self.beta[good_index]
+        self.w = self.w[good_index]
+        r_past = r_past[good_index, :]
+        r_future = r_future[good_index, :]
+
+        current_index = 0
         for i in range(n):
-            try:
-                forwarddistribution_mu, forwarddistribution_sigma = self._computeProbabilityDistributionGaussian2(i,
-                                                                                                                  r_past,
-                                                                                                                  r_future,
-                                                                                                                  N=N)
-                signal[i] = self.computeQuantile2(forwarddistribution_mu, forwarddistribution_sigma, moved[i])
-            except:
-                signal[i] = 0.0
+            if i not in wrong_index:
+                try:
+                    forwarddistribution_mu, forwarddistribution_sigma = self._computeProbabilityDistributionGaussian2(current_index,
+                                                                                                                    r_past,
+                                                                                                                    r_future,
+                                                                                                                    N=N)
+                    signal[i] = self.computeQuantile2(forwarddistribution_mu, forwarddistribution_sigma, moved[i])
+                except:
+                    signal[i] = 57.
+                current_index += 1
+            else:
+                signal[i] = np.nan
+
         return signal
 
     def _estimate(self, r):
@@ -110,8 +128,8 @@ class CCC_GARCH(Signal):
         beta = np.zeros((r.shape[0], 1))
 
         for i in range(r.shape[0]):
-            am = arch_model(r[i])
-            res = am.fit(disp="off")
+            am = arch_model(r[i], {'disp':False})
+            res = am.fit(disp="off", show_warning=False)
             mu[i, 0], w[i, 0], alpha[i, 0], beta[i, 0] = res.params.values
 
         mu = np.nan_to_num(mu)
