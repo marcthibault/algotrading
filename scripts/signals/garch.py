@@ -94,7 +94,10 @@ class CCC_GARCH(Signal):
         self._estimate(r_past)
         for i in range(n):
             try:
-                forwarddistribution_mu, forwarddistribution_sigma = self._computeProbabilityDistributionGaussian2(i, r_past, r_future, N=N)
+                forwarddistribution_mu, forwarddistribution_sigma = self._computeProbabilityDistributionGaussian2(i,
+                                                                                                                  r_past,
+                                                                                                                  r_future,
+                                                                                                                  N=N)
                 signal[i] = self.computeQuantile2(forwarddistribution_mu, forwarddistribution_sigma, moved[i])
             except:
                 signal[i] = 0.0
@@ -204,7 +207,7 @@ class CCC_GARCH(Signal):
         sigma1 = np.sqrt(initial_sigma[index, 0] - np.dot(rho, np.dot(H_inv, rho.T))[0, 0])
         mumu = self.mu[idx]
 
-        mu1 = self.mu[index, 0] + np.dot(rho, np.dot(H_inv, (R_other[:, :1] - mumu)))[0, 0]
+        mu1 = self.mu[index, 0] + np.dot(rho, np.dot(H_inv, (np.mean(R_other, axis=1) - mumu)))[0, 0]
         return n_step * mu1, np.sqrt(n_step) * sigma1
 
     def _getLastVariance(self, r):
