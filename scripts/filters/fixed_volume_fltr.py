@@ -12,6 +12,6 @@ class FixedVolumeFilter(Filter):
         volumefilter = np.argsort(-self.data.adj_volume.loc[self.evaluation_day, :]) < self.nb_stocks
         volumefilter.index = volumefilter.index.droplevel(0)
         volumefilter.name = 'filter'
+        if 'filter' in self.data.columns: self.data.drop('filter', axis=1, inplace=True)
         self.data = self.data.join(volumefilter, how='inner')
         self.filter = self.data['filter']
-

@@ -148,7 +148,6 @@ class CCC_GARCH(Signal):
         N : number of discretisation points
         max_workers : number of workers to use in the multithreading pool
         """
-        log = np.zeros(N)
         initial_sigma = self._getLastVariance(r)
 
         n_step = rr.shape[1]
@@ -183,10 +182,9 @@ class CCC_GARCH(Signal):
         index : index of the dependant variable in the array
         r : past returns on which the model was fitted
         rr : next returns for every variables in the model
-        N : number of discretisation points
+        N : number of discretization points
         max_workers : number of workers to use in the multithreading pool
         """
-        log = np.zeros(N)
         initial_sigma = self._getLastVariance(r)
 
         n_step = rr.shape[1]
