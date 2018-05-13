@@ -9,9 +9,12 @@ class FixedVolumeFilter(Filter):
         self.evaluation_day = evaluation_day
 
     def _compute(self):
-        volumefilter = np.argsort(-self.data.adj_volume.loc[self.evaluation_day, :]) < self.nb_stocks
-        volumefilter.index = volumefilter.index.droplevel(0)
-        volumefilter.name = 'filter'
-        if 'filter' in self.data.columns: self.data.drop('filter', axis=1, inplace=True)
-        self.data = self.data.join(volumefilter, how='inner')
-        self.filter = self.data['filter']
+        volumefilter = np.argsort(-self.data.adj_volume.loc[self.evaluation_day, :].values * \
+                                  self.data.adj_close.loc[self.evaluation_day, :].values)
+        volumefilter = volumefilter[:self.nb_stocks]
+        kept_tickers = self.data.index.get_level_values(1).unique()[volumefilter]
+
+        self.data["filter"] = 0
+        self.data["filter"].loc[:, kept_tickers] = 1
+
+        return self.data['filter']
