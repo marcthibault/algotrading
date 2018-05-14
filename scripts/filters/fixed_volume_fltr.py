@@ -1,5 +1,6 @@
 from .filter import Filter
 import numpy as np
+import pandas as pd
 
 
 class FixedVolumeFilter(Filter):
@@ -16,5 +17,5 @@ class FixedVolumeFilter(Filter):
 
         self.data["filter"] = 0
         self.data["filter"].loc[:, kept_tickers] = 1
-
-        return self.data['filter']
+        
+        self.filter = self.data['filter']
