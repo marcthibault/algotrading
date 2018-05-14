@@ -13,8 +13,8 @@ nb_stocks = 100
 data['filter'] = FixedVolumeFilter(data, nb_stocks, "2009-01-05").get_filter()
 
 # %% create signal
-mr_signal = CCC_GARCH(data, n_past=100, n_fit=4)
-data['signal'] = mr_signal.get_signal()
+mr_signal = CCC_GARCH(data, n_past=100, n_fit=5)
+data['signal'] = mr_signal.get_signal({'end_date':pd.to_datetime('2009-10-01'), 'trailing_sigma': 1, 'refit':60})
 
 # %% compute perfs
 data_perf = data.loc[data['filter'] == 1].dropna(subset=['signal'])
