@@ -1,0 +1,8 @@
+## Arguments for the pipeline run
+
+n_past = 100
+n_fit = 5
+nb_stocks = 100
+trailing_sigma = 1
+refit = 100
+end_date = 2018-01-01
