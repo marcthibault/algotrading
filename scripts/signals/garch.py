@@ -23,7 +23,6 @@ class CCC_GARCH(Signal):
 
         ## Used for smoothing
         self.initial_sigma = None
-        self.wrong_index = []
         self.good_index = []
 
         self.n_fit = n_fit
@@ -72,6 +71,7 @@ class CCC_GARCH(Signal):
         self.data = self.data.ffill().bfill()
 
         idx = self.data.index.get_level_values(0).unique()
+        companies = self.data[self.data.loc[:, "filter"] == 1].index.get_level_values(1).unique().values
         self.data["signal"] = 0.0
         for k, date in enumerate(tqdm(idx[self.n_past:-self.n_fit])):
             print(date)
@@ -80,6 +80,38 @@ class CCC_GARCH(Signal):
             df1 = self.data.loc[past_date:future_date]
             temp_filter = (df1.loc[future_date, "filter"] == 1)
             index_temp = temp_filter.loc[temp_filter.values].index.values
+            removed = set(companies) - set(index_temp)
+            for tick in removed:
+                print('WARNING : {} was removed from the trading'.format(tick))
+
+            list_removed = []
+            list_companies_removed = []
+            for tick in removed:
+                tick_idx = np.where(companies == tick)[0][0]
+                list_companies_removed.append(tick_idx)
+                list_removed.append(self.good_index.index(tick_idx))
+
+            for tick in removed:
+                self.data['filter'].loc[future_date:, tick] = 0.0
+            
+            if list_companies_removed != []:
+                temp_companies_correct = [i for i in range(len(companies)) if i not in list_companies_removed]
+                companies = companies[temp_companies_correct]
+                temp_index_correct = [i for i in range(len(self.good_index)) if i not in list_removed]
+            
+            for i in list_removed[::-1]:
+                del[self.good_index[i]]
+                for b in range(i, len(self.good_index)):
+                    self.good_index[b] -=1
+
+            if list_removed != []:
+                self.R = self.R[temp_index_correct, :][:, temp_index_correct]
+                self.mu = self.mu[temp_index_correct]
+                self.alpha = self.alpha[temp_index_correct]
+                self.beta = self.beta[temp_index_correct]
+                self.w = self.w[temp_index_correct]
+                self.initial_sigma = self.initial_sigma[temp_index_correct]
+
             temp_prices = df1["adj_close"].unstack().loc[:, index_temp]
 
             p = temp_prices.values.T
@@ -109,8 +141,8 @@ class CCC_GARCH(Signal):
         if not no_refit:
             self._estimate(r_past)
 
-            self.wrong_index = np.where(self.w == 0)[0]
-            self.good_index = [i for i in range(n) if i not in self.wrong_index]
+            wrong_index = np.where(self.w == 0)[0]
+            self.good_index = [i for i in range(n) if i not in wrong_index]
 
             self.R = self.R[self.good_index, :][:, self.good_index]
             self.mu = self.mu[self.good_index]
@@ -128,7 +160,7 @@ class CCC_GARCH(Signal):
 
         current_index = 0
         for i in range(n):
-            if i not in self.wrong_index:
+            if i in self.good_index:
                 try:
                     forwarddistribution_mu, forwarddistribution_sigma = self._computeProbabilityDistributionGaussian2(current_index,
                                                                                                                 r_past,
