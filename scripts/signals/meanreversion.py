@@ -12,7 +12,7 @@ class MeanReversion(Signal):
         Signal.__init__(self, data.copy())
         self.decay_rate = 1 - np.exp(np.log(.5) / (ewma_length * 2))
 
-    def _compute(self):
+    def _compute(self, kwargs={}):
         self.data['ewma'] = self.data.groupby(
             level=1).adj_close.apply(lambda x: x.ewm(alpha=self.decay_rate).mean())
 
