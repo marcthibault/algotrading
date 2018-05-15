@@ -72,7 +72,7 @@ class CCC_GARCH(Signal):
 
         idx = self.data.index.get_level_values(0).unique()
         companies = self.data[self.data.loc[:, "filter"] == 1].index.get_level_values(1).unique().values
-        self.data["signal"] = 0.0
+        self.data["signal"] = np.nan
         for k, date in enumerate(tqdm(idx[self.n_past:-self.n_fit])):
             print(date)
             past_date = idx[k]
