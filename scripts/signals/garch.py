@@ -57,7 +57,7 @@ class CCC_GARCH(Signal):
 
         return r
 
-    def _compute(self, start_date=None, end_date=None, trailing_sigma=1, refit = 1000):
+    def _compute(self, start_date=None, end_date=None, trailing_sigma=1, refit=1000):
         '''
         trailing_sigma : number of days to use to smoothe the last variance
         refit : number of days between two refits
@@ -93,16 +93,16 @@ class CCC_GARCH(Signal):
 
             for tick in removed:
                 self.data['filter'].loc[future_date:, tick] = 0.0
-            
+
             if list_companies_removed != []:
                 temp_companies_correct = [i for i in range(len(companies)) if i not in list_companies_removed]
                 companies = companies[temp_companies_correct]
                 temp_index_correct = [i for i in range(len(self.good_index)) if i not in list_removed]
-            
+
             for i in list_removed[::-1]:
-                del[self.good_index[i]]
+                del [self.good_index[i]]
                 for b in range(i, len(self.good_index)):
-                    self.good_index[b] -=1
+                    self.good_index[b] -= 1
 
             if list_removed != []:
                 self.R = self.R[temp_index_correct, :][:, temp_index_correct]
@@ -117,60 +117,92 @@ class CCC_GARCH(Signal):
             p = temp_prices.values.T
             r = np.log(p[:, 1:]) - np.log(p[:, :-1])
             ## We want to refit every "refit" date. no_refit is false when we want to refit
-            signal = self.computeOneSignal(r, self.n_past, self.n_past, self.n_fit, trailing_sigma=trailing_sigma, no_refit=(k % refit))
+            signal = self.computeOneSignal(r, no_refit=(k % refit))
 
             self.data.loc[(future_date, list(index_temp)), "signal"] = signal
 
         self._computed = True
         self.signal = self.data.loc[:, "signal"]
 
-    def computeOneSignal(self, r, current_index, n_fit, n_predict, trailing_sigma = 1, no_refit = False):
+    def _compute_dict(self, start_date=None, end_date=None, trailing_sigma=1, refit=1000):
         '''
         trailing_sigma : number of days to use to smoothe the last variance
-        refit : if true, refit the GARCH model
+        refit : number of days between two refits
         '''
-        if current_index < n_fit:
-            n_fit = current_index
-        
-        r_past = r[:, (current_index - n_fit):current_index]
-        r_future = r[:, current_index:(current_index + n_predict)]
-        n = r_past.shape[0]
-        moved = np.prod(1 + r_future, axis=1) - 1
-        signal = np.zeros(n)
-        ## if refit is false, we refit the model, and extract only the correct indexes
-        if not no_refit:
-            self._estimate(r_past)
+        if start_date is None:
+            start_date = self.data.index.get_level_values(0)[0]
+        if end_date is None:
+            end_date = self.data.index.get_level_values(0)[-1]
 
-            wrong_index = np.where(self.w == 0)[0]
-            self.good_index = [i for i in range(n) if i not in wrong_index]
+        self.data = self.data.loc[start_date:end_date]
+        self.data = self.data.ffill().bfill()
 
-            self.R = self.R[self.good_index, :][:, self.good_index]
-            self.mu = self.mu[self.good_index]
-            self.alpha = self.alpha[self.good_index]
-            self.beta = self.beta[self.good_index]
-            self.w = self.w[self.good_index]
-                
-        r_past = r_past[self.good_index, :]
-        r_future = r_future[self.good_index, :]
+        calendar = self.data.index.get_level_values(0).unique()
+        previous_companies = self.data[self.data.loc[:, "filter"] == 1].index.get_level_values(1).unique().values
+        self.data["signal"] = np.nan
 
-        if self.initial_sigma is None or not no_refit:
-            self.initial_sigma = self._getLastVariance(r_past)
-        else:
-            self.initial_sigma =  ((trailing_sigma - 1) * np.nan_to_num(self.initial_sigma) + self._getLastVariance(r_past)) / trailing_sigma
+        fitter = {ticker: GarchFitter() for ticker in all_companies}
+        for k, fit_date in enumerate(tqdm(calendar[self.n_past:-self.n_fit])):
+            start_fit_date = calendar[k]
+            current_date = calendar[k + self.n_fit + self.n_past]
+            print(current_date)
 
-        current_index = 0
-        for i in range(n):
-            if i in self.good_index:
-                try:
-                    forwarddistribution_mu, forwarddistribution_sigma = self._computeProbabilityDistributionGaussian2(current_index,
-                                                                                                                r_past,
-                                                                                                                r_future)
-                    signal[i] = self.computeQuantile2(forwarddistribution_mu, forwarddistribution_sigma, moved[i])
-                except:
-                    signal[i] = 57.
-                current_index += 1
-            else:
-                signal[i] = np.nan
+            df1 = self.data.loc[start_fit_date:current_date]
+            temp_filter = (df1.loc[current_date, "filter"] == 1)
+            current_companies = set(temp_filter.loc[temp_filter.values].index.values)
+
+            temp_prices = df1["adj_close"].unstack().loc[:, current_companies]
+            p = temp_prices.values.T
+            r = np.log(p[:, 1:]) - np.log(p[:, :-1])
+            r_past = r[:, :self.n_past]
+            r_future = r[:, self.n_past:]
+
+            # Every refit days, we refit all our models: single series and correlation matrix.
+            if (k % refit) == 0:
+                for ticker_index, ticker in enumerate(current_companies):
+                    fitter[ticker].fit(r_past[ticker_index])
+
+                residuals = np.array([fitter[ticker].residuals for ticker in current_companies])
+                self.R = np.corrcoef(residuals)
+                self.mu = np.array([fitter[ticker].mu for ticker in current_companies])  # TODO Nx1
+
+            # Case where we lost or won a company
+            if previous_companies != current_companies:
+                pass
+                # TODO
+
+            # self.R = self.R[temp_index_correct, :][:, temp_index_correct]
+            self.initial_sigma = np.array(
+                [fitter[ticker]._getLastVariance(r_past[index_ticker]) for index_ticker, ticker in
+                 enumerate(current_companies)])
+
+            ## We want to refit every "refit" date. no_refit is false when we want to refit
+            signal = self.computeOneSignal(r_future)
+            self.data.loc[(current_date, list(current_companies)), "signal"] = signal
+
+            previous_companies = current_companies
+
+        self._computed = True
+        self.signal = self.data.loc[:, "signal"]
+
+    def computeOneSignal(self, r_future):
+        """
+        trailing_sigma : number of days to use to smoothe the last variance
+        refit : if true, refit the GARCH model
+        """
+        n_stocks = r_future.shape[0]
+        moved = np.sum(r_future, axis=1)
+        signal = np.zeros(n_stocks)
+
+        for ticker_index in range(n_stocks):
+            try:
+                forwarddistribution_mu, forwarddistribution_sigma = self._computeProbabilityDistributionGaussian(
+                    ticker_index,
+                    r_future)
+                signal[ticker_index] = self.computeQuantile(forwarddistribution_mu, forwarddistribution_sigma, moved[ticker_index])
+            except:
+                print("Error in _computeProbabilityDistributionGaussian({})".format(ticker_index))
+                signal[ticker_index] = np.nan
 
         return signal
 
@@ -181,9 +213,10 @@ class CCC_GARCH(Signal):
         beta = np.zeros((r.shape[0], 1))
         count = 0
         for i in range(r.shape[0]):
-            am = arch_model(r[i], {'disp':False})
+            am = arch_model(r[i], {'disp': False})
             if self.mu is not None and i in self.good_index:
-                res = am.fit(disp="off", show_warning=False, starting_values=np.array([self.mu[count, 0], self.w[count, 0], self.alpha[count, 0], self.beta[count, 0]]))
+                res = am.fit(disp="off", show_warning=False, starting_values=np.array(
+                    [self.mu[count, 0], self.w[count, 0], self.alpha[count, 0], self.beta[count, 0]]))
                 count += 1
             else:
                 res = am.fit(disp="off", show_warning=False)
@@ -221,43 +254,7 @@ class CCC_GARCH(Signal):
 
         return eps, sigma
 
-    def _computeProbabilityDistributionGaussian(self, index, r, rr, N=1000):
-        """
-        Compute probability distribution of variable labeled index
-        knowing the evolution of the others.
-        index : index of the dependant variable in the array
-        r : past returns on which the model was fitted
-        rr : next returns for every variables in the model
-        N : number of discretisation points
-        max_workers : number of workers to use in the multithreading pool
-        """
-    
-        n_step = rr.shape[1]
-        m = r.shape[0]
-        R_other = np.delete(rr, index, axis=0)
-        H = np.dot(np.diag(np.sqrt(self.initial_sigma[:, 0])), np.dot(self.R, np.diag(np.sqrt(self.initial_sigma[:, 0]))))
-        idx = np.concatenate((np.linspace(0, index - 1, index), np.linspace(index + 1, m - 1, m - index - 1))).astype(
-            np.int32)
-        H_other = H[idx][:, idx]
-        H_inv = np.linalg.inv(H_other)
-        rho = H[index:index + 1, idx]
-        sigma1 = np.sqrt(self.initial_sigma[index, 0] - np.dot(rho, np.dot(H_inv, rho.T))[0, 0])
-        mumu = self.mu[idx]
-        distrib = np.zeros((N, n_step))
-        for i in range(n_step):
-            mu1 = self.mu[index, 0] + np.dot(rho,
-                                             np.dot(H_inv, (R_other[:, i:i + 1] - mumu)))[0, 0]
-            distrib[:, i] = np.random.normal(mu1, sigma1, N)
-
-        distrib = np.product(1 + distrib, axis=1) - 1
-        distrib = np.histogram(distrib, bins=int(np.sqrt(N)), density=True)
-        log = np.zeros((2, len(distrib[0])))
-        log[0] = distrib[1][1:]
-        log[1] = distrib[0]
-        log[1] = log[1] * (distrib[1][1:] - distrib[1][:-1])
-        return log
-
-    def _computeProbabilityDistributionGaussian2(self, index, r, rr):
+    def _computeProbabilityDistributionGaussian(self, index, r_future):
         """
         Compute probability distribution of variable labeled index
         knowing the evolution of the others.
@@ -267,11 +264,12 @@ class CCC_GARCH(Signal):
         N : number of discretization points
         max_workers : number of workers to use in the multithreading pool
         """
-        
-        n_step = rr.shape[1]
-        m = r.shape[0]
-        R_other = np.delete(rr, index, axis=0)
-        H = np.dot(np.diag(np.sqrt(self.initial_sigma[:, 0])), np.dot(self.R, np.diag(np.sqrt(self.initial_sigma[:, 0]))))
+
+        n_step = r_future.shape[1]
+        m = r_future.shape[0]
+        R_other = np.delete(r_future, index, axis=0)
+        H = np.dot(np.diag(np.sqrt(self.initial_sigma[:, 0])),
+                   np.dot(self.R, np.diag(np.sqrt(self.initial_sigma[:, 0]))))
         idx = np.concatenate((np.linspace(0, index - 1, index), np.linspace(index + 1, m - 1, m - index - 1))).astype(
             np.int32)
         H_other = H[idx][:, idx]
@@ -279,7 +277,7 @@ class CCC_GARCH(Signal):
         rho = H[index:index + 1, idx]
         sigma1 = np.sqrt(self.initial_sigma[index, 0] - np.dot(rho, np.dot(H_inv, rho.T))[0, 0])
         mumu = self.mu[idx]
-    
+
         mu1 = self.mu[index, 0] + np.dot(rho, np.dot(H_inv, (np.mean(R_other, axis=1) - mumu)))[0, 0]
         return n_step * mu1, np.sqrt(n_step) * sigma1
 
@@ -288,15 +286,5 @@ class CCC_GARCH(Signal):
         return sigma[:, -1:]
 
     @staticmethod
-    def computeQuantile(proba, value):
-        p = 0
-        i = 0
-        while i < proba.shape[1] and proba[0, i] < value:
-            p += proba[1, i]
-            i += 1
-
-        return p - 0.5
-
-    @staticmethod
-    def computeQuantile2(mu, sigma, value):
-        return norm.cdf((mu - value) / 4.0 / sigma)
+    def computeQuantile(mu, sigma, value):
+        return norm.cdf((mu - value) / sigma)
