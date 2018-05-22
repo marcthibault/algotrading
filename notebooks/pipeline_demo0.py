@@ -4,7 +4,7 @@ import sys
 
 from scripts.filters.fixed_volume_fltr import FixedVolumeFilter
 from scripts.filters.volume_fltr import VolumeFilter
-from scripts.signals.garch import CCC_GARCH
+from scripts.signals.cross_section_correlation import CrossSectionCorrelation
 
 import argparse
 
@@ -41,7 +41,7 @@ def compute(ARGS):
     data['filter'] = FixedVolumeFilter(data, nb_stocks, "2009-01-05").get_filter()
 
     # %% create signal
-    mr_signal = CCC_GARCH(data, n_past=n_past, n_fit=n_fit)
+    mr_signal = CrossSectionCorrelation(data, n_past=n_past, n_fit=n_fit)
     data['signal'] = mr_signal.get_signal({'end_date':end_date, 'trailing_sigma': trailing_sigma, 'refit':refit})
 
     # %% compute perfs

@@ -1,5 +1,3 @@
-import pandas as pd
-
 '''
 Basic signal computation class.
 '''

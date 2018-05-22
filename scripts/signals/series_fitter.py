@@ -1,9 +1,3 @@
-import numpy as np
-from arch import arch_model
-from scipy.linalg import sqrtm
-from scipy.stats import norm
-
-
 class SeriesFitter(object):
     def __init__(self):
         pass
@@ -17,7 +11,7 @@ class SeriesFitter(object):
     def _recoverVariables(self, r):
         pass
 
-    def _getLastVariance(self, r):
+    def getLastVariance(self, r):
         pass
 
     @staticmethod
