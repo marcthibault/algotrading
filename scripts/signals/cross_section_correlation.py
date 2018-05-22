@@ -71,8 +71,28 @@ class CrossSectionCorrelation(Signal):
 
             # Case where we lost or won a company
             if set(previous_companies) != set(current_companies):
-                pass
-                # TODO
+                added_set = set(current_companies) - set(previous_companies)
+                removed_set = set(previous_companies) - set(current_companies)
+                if added_set is not {}:
+                    print("Added companies : {}".format(added_set))
+                if removed_set is not {}:
+                    print("Removed companies : {}".format(set(previous_companies) - set(current_companies)))
+                
+                for ticker in added_set:
+                    ticker_index = current_companies.index(ticker)
+                    self.fitter[ticker].fit(r_past[ticker_index])
+
+                residuals = np.concatenate([np.reshape(self.fitter[ticker].get_residuals(r_past[ticker_index]),
+                                                       newshape=[1, -1])
+                                            for ticker_index, ticker in enumerate(current_companies)],
+                                            axis=0)
+                self.residuals = residuals
+                self.R = np.corrcoef(residuals)
+                if np.min(np.linalg.eigvals(self.R)) < 1e-5:
+                    print("Minimum eigenvalue of R is {}".format(np.min(np.linalg.eigvals(self.R))))
+                self.mu = np.reshape([self.fitter[ticker].mu for ticker in current_companies],
+                                     newshape=[len(current_companies), 1])
+                
 
             # self.R = self.R[temp_index_correct, :][:, temp_index_correct]
             self.initial_sigma = np.reshape(
