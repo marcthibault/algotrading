@@ -37,7 +37,7 @@ class CrossSectionCorrelation(Signal):
         self.data["signal"] = np.nan
 
         self.fitter = {ticker: GarchFitter(self.n_past) for ticker in all_companies}
-        for k, fit_date in enumerate(tqdm_notebook(calendar[self.n_past:-self.n_fit])):
+        for k, fit_date in enumerate(tqdm(calendar[self.n_past:-self.n_fit])):
             start_fit_date = calendar[k]
             current_date = calendar[k + self.n_fit + self.n_past]
             print(current_date)
