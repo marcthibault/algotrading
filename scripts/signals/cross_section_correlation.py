@@ -99,7 +99,7 @@ class CrossSectionCorrelation(Signal):
                 [self.fitter[ticker].getLastVariance(r_past[index_ticker]) for index_ticker, ticker in
                  enumerate(current_companies)], newshape=[len(current_companies), 1])
 
-            signal = self.computeOneSignal(r_future)
+            signal = self.computeOneSignal(r_future, current_companies)
             self.data.loc[(current_date, list(current_companies)), "signal"] = signal
 
             previous_companies = current_companies
@@ -107,7 +107,7 @@ class CrossSectionCorrelation(Signal):
         self._computed = True
         self.signal = self.data.loc[:, "signal"]
 
-    def computeOneSignal(self, r_future):
+    def computeOneSignal(self, r_future, current_companies):
         """
         trailing_sigma : number of days to use to smooth the last variance
         refit : if true, refit the GARCH model
@@ -116,12 +116,17 @@ class CrossSectionCorrelation(Signal):
         moved = np.sum(r_future, axis=1)
         signal = np.zeros(n_stocks)
 
-        for ticker_index in range(n_stocks):
+        for ticker_index, ticker in enumerate(current_companies):
             conditional_mu, conditional_sigma = self._computeProbabilityDistributionGaussian(ticker_index,
                                                                                              r_future)
-            signal[ticker_index] = self.computeQuantile(conditional_mu,
-                                                        conditional_sigma,
-                                                        moved[ticker_index])
+            # signal[ticker_index] = self.computeQuantile(conditional_mu,
+            #                                             conditional_sigma,
+            #                                             moved[ticker_index])
+
+            signal[ticker_index] = self.computeSignal(self.fitter[ticker].mu,
+                                                      conditional_mu,
+                                                      conditional_sigma,
+                                                      moved[ticker_index])
 
         return signal
 
@@ -150,3 +155,7 @@ class CrossSectionCorrelation(Signal):
     @staticmethod
     def computeQuantile(mu, sigma, value):
         return norm.cdf((mu - value) / sigma)
+    
+    @staticmethod
+    def computeSignal(mu0, mu, sigma, value, alpha=1.0):
+        return mu0 + alpha * (mu - value)

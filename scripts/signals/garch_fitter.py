@@ -19,6 +19,8 @@ class GarchFitter(SeriesFitter):
         self.alpha = 0
         self.beta = 0
 
+        self.last_sigma = 0
+
     def fit(self, r):
         assert r.shape == (self.n_past,)
 
@@ -42,11 +44,13 @@ class GarchFitter(SeriesFitter):
             print("Warning: GARCH Convergence issue: alpha + beta = 1 - {}. Switching to simple mode.".format(
                 (1 - alpha - beta)))
             self.mu = np.mean(r)
-            self.sigma = np.std(r)
+            self.sigma = np.var(r)
             self.garch_fitted = False
+            self.last_sigma = self.sigma
         else:
             self.garch_fitted = True
             self.mu, self.w, self.alpha, self.beta = mu, w, alpha, beta
+            self.last_sigma = (res.conditional_volatility[-1] / np.sqrt(252)) ** 2
 
     def get_residuals(self, r):
         assert r.shape == (self.n_past,)
@@ -81,13 +85,20 @@ class GarchFitter(SeriesFitter):
 
         return eps, sigma
 
-    def getLastVariance(self, r):
-        if not self.garch_fitted:
-            return self.sigma
+    # def getLastVariance(self, r):
+    #     if not self.garch_fitted:
+    #         return self.sigma
 
-        assert r.shape == (self.n_past,)
-        _, sigma = self._recoverVariables(r)
-        return sigma[-1]
+    #     assert r.shape == (self.n_past,)
+    #     _, sigma = self._recoverVariables(r)
+    #     return sigma[-1]
+
+    def getLastVariance(self, r):
+        if self.garch_fitted:
+            last_eps = (r - self.mu)[-1]
+            self.last_sigma = self.w + self.alpha * last_eps ** 2 + self.beta * self.last_sigma
+        
+        return self.last_sigma
 
     @staticmethod
     def computeQuantile(mu, sigma, value):
