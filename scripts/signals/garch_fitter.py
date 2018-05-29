@@ -24,19 +24,23 @@ class GarchFitter(SeriesFitter):
     def fit(self, r):
         assert r.shape == (self.n_past,)
 
-        am = arch_model(r, {'disp': False})
-        if self.garch_fitted and False:
-            res = am.fit(disp="off", show_warning=False,
-                         starting_values=np.array([self.mu, self.w, self.alpha, self.beta]))
+        if False:
+            am = arch_model(r, {'disp': False})
+            if self.garch_fitted and False:
+                res = am.fit(disp="off", show_warning=False,
+                             starting_values=np.array([self.mu, self.w, self.alpha, self.beta]))
+            else:
+                res = am.fit(disp="off", show_warning=False)
+
+            mu, w, alpha, beta = res.params.values
+
+            mu = np.nan_to_num(mu)
+            w = np.nan_to_num(w)
+            alpha = np.nan_to_num(alpha)
+            beta = np.nan_to_num(beta)
         else:
-            res = am.fit(disp="off", show_warning=False)
-
-        mu, w, alpha, beta = res.params.values
-
-        mu = np.nan_to_num(mu)
-        w = np.nan_to_num(w)
-        alpha = np.nan_to_num(alpha)
-        beta = np.nan_to_num(beta)
+            alpha = 1
+            beta = 1
 
         if alpha + beta > 1 - 1e-8 or w < 1e-8:
             # warnings.warn("GARCH Convergence issue: alpha + beta = 1 - {}. Switching to simple mode.".format(

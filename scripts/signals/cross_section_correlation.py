@@ -10,11 +10,49 @@ class CrossSectionCorrelation(Signal):
     def __init__(self, data, n_past, n_fit, refit):
         Signal.__init__(self, data)
         self.mu = None
+
         self.R = None
+        self.R_inverses = {}
 
         self.n_fit = n_fit
         self.n_past = n_past
         self.refit = refit
+
+    # def set_correlation_matrix(self, R):
+    #     self.R = R
+    #     n_stocks = R.shape[0]
+    #     for i in range(n_stocks):
+    #         idx = np.concatenate((np.arange(0, i), np.arange(i + 1, n_stocks))).astype(np.int32)
+    #         R_other = self.R[idx][:, idx]
+    #         R_inv = np.linalg.pinv(R_other)
+    #         self.R_inverses[i] = R_inv
+
+    def set_correlation_matrix(self, R):
+        self.R = R
+        n_stocks = R.shape[0]
+        R_inv = np.linalg.pinv(R)
+        for i in range(n_stocks):
+            idx = np.concatenate((np.arange(0, i), np.arange(i + 1, n_stocks))).astype(np.int32)
+            U = np.zeros([n_stocks, 2])
+            U[i, 0] = 1
+            U[idx, 1] = R[idx, i]
+
+            V = np.zeros([2, n_stocks])
+            V[1, i] = 1
+            V[0, idx] = R[i, idx]
+
+            R_other_inv_SM = (R_inv -
+                              np.dot(np.dot(R_inv,
+                                            np.dot(-U,
+                                                   np.linalg.inv(np.eye(2) +
+                                                                 np.dot(V,
+                                                                        np.dot(R_inv,
+                                                                               -U))))),
+                                     np.dot(V,
+                                            R_inv)))
+            R_other_inv_SM = R_other_inv_SM[idx, :][:, idx]
+
+            self.R_inverses[i] = R_other_inv_SM
 
     def _compute(self, start_date=None, end_date=None):
         """
@@ -34,9 +72,10 @@ class CrossSectionCorrelation(Signal):
         previous_companies = sorted(
             self.data[self.data.loc[:, "filter"] == 1].index.get_level_values(1).unique().values)
         self.data["signal"] = np.nan
+        self.data["signalReverted"] = np.nan
 
         self.fitter = {ticker: GarchFitter(self.n_past) for ticker in all_companies}
-        for k, fit_date in enumerate(tqdm(calendar[self.n_past:-self.n_fit])):
+        for k, fit_date in enumerate(tqdm_notebook(calendar[self.n_past:-self.n_fit])):
             start_fit_date = calendar[k]
             current_date = calendar[k + self.n_fit + self.n_past]
             print(current_date)
@@ -63,7 +102,7 @@ class CrossSectionCorrelation(Signal):
                                             for ticker_index, ticker in enumerate(current_companies)],
                                            axis=0)
                 self.residuals = residuals
-                self.R = np.corrcoef(residuals)
+                self.set_correlation_matrix(np.corrcoef(residuals))
                 if np.min(np.linalg.eigvals(self.R)) < 1e-5:
                     print("Minimum eigenvalue of R is {}".format(np.min(np.linalg.eigvals(self.R))))
                 self.mu = np.reshape([self.fitter[ticker].mu for ticker in current_companies],
@@ -77,7 +116,7 @@ class CrossSectionCorrelation(Signal):
                     print("Added companies : {}".format(added_set))
                 if removed_set is not {}:
                     print("Removed companies : {}".format(set(previous_companies) - set(current_companies)))
-                
+
                 for ticker in added_set:
                     ticker_index = current_companies.index(ticker)
                     self.fitter[ticker].fit(r_past[ticker_index])
@@ -87,20 +126,20 @@ class CrossSectionCorrelation(Signal):
                                             for ticker_index, ticker in enumerate(current_companies)],
                                             axis=0)
                 self.residuals = residuals
-                self.R = np.corrcoef(residuals)
+                self.set_correlation_matrix(np.corrcoef(residuals))
                 if np.min(np.linalg.eigvals(self.R)) < 1e-5:
                     print("Minimum eigenvalue of R is {}".format(np.min(np.linalg.eigvals(self.R))))
                 self.mu = np.reshape([self.fitter[ticker].mu for ticker in current_companies],
                                      newshape=[len(current_companies), 1])
                 
 
-            # self.R = self.R[temp_index_correct, :][:, temp_index_correct]
-            self.initial_sigma = np.reshape(
-                [self.fitter[ticker].getLastVariance(r_past[index_ticker]) for index_ticker, ticker in
-                 enumerate(current_companies)], newshape=[len(current_companies), 1])
+            self.initial_sigma = np.reshape([self.fitter[ticker].getLastVariance(r_past[index_ticker])
+                                             for index_ticker, ticker in enumerate(current_companies)],
+                                            newshape=[len(current_companies), 1])
 
-            signal = self.computeOneSignal(r_future, current_companies)
-            self.data.loc[(current_date, list(current_companies)), "signal"] = signal
+            signalMean, signalReverted = self.computeOneSignal(r_future)
+            self.data.loc[(current_date, list(current_companies)), "signal"] = signalMean
+            self.data.loc[(current_date, list(current_companies)), "signalReverted"] = signalReverted
 
             previous_companies = current_companies
 
@@ -114,7 +153,8 @@ class CrossSectionCorrelation(Signal):
         """
         n_stocks = r_future.shape[0]
         moved = np.sum(r_future, axis=1)
-        signal = np.zeros(n_stocks)
+        signalMean = np.zeros(n_stocks)
+        signalReverted = np.zeros(n_stocks)
 
         for ticker_index, ticker in enumerate(current_companies):
             conditional_mu, conditional_sigma = self._computeProbabilityDistributionGaussian(ticker_index,
@@ -128,7 +168,7 @@ class CrossSectionCorrelation(Signal):
                                                       conditional_sigma,
                                                       moved[ticker_index])
 
-        return signal
+        return signalMean, signalReverted
 
     def _computeProbabilityDistributionGaussian(self, index, r_future):
         """
@@ -140,12 +180,21 @@ class CrossSectionCorrelation(Signal):
         n_step = r_future.shape[1]
         n_stock = r_future.shape[0]
         r_other = np.delete(r_future, index, axis=0)
-        H = np.dot(np.diag(np.sqrt(self.initial_sigma[:, 0])),
-                   np.dot(self.R, np.diag(np.sqrt(self.initial_sigma[:, 0]))))
+
+        # V2
         idx = np.concatenate((np.arange(0, index), np.arange(index + 1, n_stock))).astype(np.int32)
-        H_other = H[idx][:, idx]
-        H_inv = np.linalg.pinv(H_other)
-        rho = H[index:index + 1, idx]
+        sigmas_inv = 1 / np.sqrt(self.initial_sigma[idx, 0:1])
+
+        H_inv = sigmas_inv * self.R_inverses[index] * sigmas_inv.T
+
+        # V1
+        # H = np.dot(np.diag(np.sqrt(self.initial_sigma[:, 0])),
+        #            np.dot(self.R, np.diag(np.sqrt(self.initial_sigma[:, 0]))))
+        # idx = np.concatenate((np.arange(0, index), np.arange(index + 1, n_stock))).astype(np.int32)
+        # H_other = H[idx][:, idx]
+        # H_inv = np.linalg.pinv(H_other)
+
+        rho = self.R[index:index + 1, idx] * np.sqrt(self.initial_sigma[index, 0] * self.initial_sigma[idx, 0])
         sigma1 = np.sqrt(self.initial_sigma[index, 0] - np.dot(rho, np.dot(H_inv, rho.T))[0, 0])
         mumu = self.mu[idx]
 
@@ -155,7 +204,12 @@ class CrossSectionCorrelation(Signal):
     @staticmethod
     def computeQuantile(mu, sigma, value):
         return norm.cdf((mu - value) / sigma)
-    
+
     @staticmethod
     def computeSignal(mu0, mu, sigma, value, alpha=1.0):
         return mu0 + alpha * (mu - value)
+
+    @staticmethod
+    def computeRevertedSignal(mu, sigma, value):
+        epsilon = value - mu
+        return mu, mu - epsilon
