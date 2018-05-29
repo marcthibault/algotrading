@@ -54,7 +54,7 @@ class GarchFitter(SeriesFitter):
         else:
             self.garch_fitted = True
             self.mu, self.w, self.alpha, self.beta = mu, w, alpha, beta
-            self.last_sigma = (res.conditional_volatility[-1] / np.sqrt(252)) ** 2
+            self.last_sigma = res.conditional_volatility[-1] ** 2
 
     def get_residuals(self, r):
         assert r.shape == (self.n_past,)

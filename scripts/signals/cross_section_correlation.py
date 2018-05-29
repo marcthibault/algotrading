@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.stats import norm
 from tqdm import tqdm, tqdm_notebook
 
 from scripts.signals.garch_fitter import GarchFitter, GARCHConvergenceException
@@ -17,15 +16,6 @@ class CrossSectionCorrelation(Signal):
         self.n_fit = n_fit
         self.n_past = n_past
         self.refit = refit
-
-    # def set_correlation_matrix(self, R):
-    #     self.R = R
-    #     n_stocks = R.shape[0]
-    #     for i in range(n_stocks):
-    #         idx = np.concatenate((np.arange(0, i), np.arange(i + 1, n_stocks))).astype(np.int32)
-    #         R_other = self.R[idx][:, idx]
-    #         R_inv = np.linalg.pinv(R_other)
-    #         self.R_inverses[i] = R_inv
 
     def set_correlation_matrix(self, R):
         self.R = R
@@ -124,14 +114,13 @@ class CrossSectionCorrelation(Signal):
                 residuals = np.concatenate([np.reshape(self.fitter[ticker].get_residuals(r_past[ticker_index]),
                                                        newshape=[1, -1])
                                             for ticker_index, ticker in enumerate(current_companies)],
-                                            axis=0)
+                                           axis=0)
                 self.residuals = residuals
                 self.set_correlation_matrix(np.corrcoef(residuals))
                 if np.min(np.linalg.eigvals(self.R)) < 1e-5:
                     print("Minimum eigenvalue of R is {}".format(np.min(np.linalg.eigvals(self.R))))
                 self.mu = np.reshape([self.fitter[ticker].mu for ticker in current_companies],
                                      newshape=[len(current_companies), 1])
-                
 
             self.initial_sigma = np.reshape([self.fitter[ticker].getLastVariance(r_past[index_ticker])
                                              for index_ticker, ticker in enumerate(current_companies)],
@@ -159,14 +148,10 @@ class CrossSectionCorrelation(Signal):
         for ticker_index, ticker in enumerate(current_companies):
             conditional_mu, conditional_sigma = self._computeProbabilityDistributionGaussian(ticker_index,
                                                                                              r_future)
-            # signal[ticker_index] = self.computeQuantile(conditional_mu,
-            #                                             conditional_sigma,
-            #                                             moved[ticker_index])
 
-            signal[ticker_index] = self.computeSignal(self.fitter[ticker].mu,
-                                                      conditional_mu,
-                                                      conditional_sigma,
-                                                      moved[ticker_index])
+            signalMean[ticker_index] = self.computeSignal(conditional_mu,
+                                                          conditional_sigma,
+                                                          moved[ticker_index])
 
         return signalMean, signalReverted
 
@@ -202,14 +187,6 @@ class CrossSectionCorrelation(Signal):
         return n_step * mu1, np.sqrt(n_step) * sigma1
 
     @staticmethod
-    def computeQuantile(mu, sigma, value):
-        return norm.cdf((mu - value) / sigma)
-
-    @staticmethod
-    def computeSignal(mu0, mu, sigma, value, alpha=1.0):
-        return mu0 + alpha * (mu - value)
-
-    @staticmethod
-    def computeRevertedSignal(mu, sigma, value):
+    def computeSignal(mu, sigma, value, alpha=1.0):
         epsilon = value - mu
         return mu, mu - epsilon
