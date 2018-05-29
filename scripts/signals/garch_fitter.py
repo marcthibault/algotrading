@@ -45,8 +45,8 @@ class GarchFitter(SeriesFitter):
         if alpha + beta > 1 - 1e-8 or w < 1e-8:
             # warnings.warn("GARCH Convergence issue: alpha + beta = 1 - {}. Switching to simple mode.".format(
             #     - (1 - alpha - beta)))
-            print("Warning: GARCH Convergence issue: alpha + beta = 1 - {}. Switching to simple mode.".format(
-                (1 - alpha - beta)))
+            # print("Warning: GARCH Convergence issue: alpha + beta = 1 - {}. Switching to simple mode.".format(
+            #     (1 - alpha - beta)))
             self.mu = np.mean(r)
             self.sigma = np.var(r)
             self.garch_fitted = False
