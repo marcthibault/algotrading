@@ -27,7 +27,6 @@ class CrossSectionCorrelation(Signal):
             end_date = self.data.index.get_level_values(0)[-1]
 
         self.data = self.data.loc[start_date:end_date]
-        self.data = self.data.ffill().bfill()
 
         calendar = self.data.index.get_level_values(0).unique()
         all_companies = set(self.data.index.get_level_values(1).unique().values)
@@ -47,6 +46,7 @@ class CrossSectionCorrelation(Signal):
             current_companies = sorted(temp_filter.loc[temp_filter.values].index.values)
 
             temp_prices = df1["adj_close"].unstack().loc[:, current_companies]
+            temp_prices = temp_prices.ffill().bfill()
             p = temp_prices.values.T
             r = np.log(p[:, 1:]) - np.log(p[:, :-1])
             r_past = r[:, :self.n_past]
