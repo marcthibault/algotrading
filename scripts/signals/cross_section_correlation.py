@@ -5,6 +5,18 @@ from scripts.signals.garch_fitter import GarchFitter, GARCHConvergenceException
 from .signal import Signal
 
 
+# def is_notebook()
+#     try:
+#         shell = get_ipython().__class__.__name__
+#         if shell == 'ZMQInteractiveShell':
+#             return True  # Jupyter notebook or qtconsole
+#         elif shell == 'TerminalInteractiveShell':
+#             return False  # Terminal running IPython
+#         else:
+#             return False  # Other type (?)
+#     except NameError:
+#         return False  # Probably standard Python interpreter
+
 class CrossSectionCorrelation(Signal):
     def __init__(self, data, n_past, n_fit, refit):
         Signal.__init__(self, data)
@@ -117,8 +129,8 @@ class CrossSectionCorrelation(Signal):
                                            axis=0)
                 self.residuals = residuals
                 self.set_correlation_matrix(np.corrcoef(residuals))
-                if np.min(np.linalg.eigvals(self.R)) < 1e-5:
-                    print("Minimum eigenvalue of R is {}".format(np.min(np.linalg.eigvals(self.R))))
+                # if np.min(np.linalg.eigvals(self.R)) < 1e-5:
+                #     print("Minimum eigenvalue of R is {}".format(np.min(np.linalg.eigvals(self.R))))
                 self.mu = np.reshape([self.fitter[ticker].mu for ticker in current_companies],
                                      newshape=[len(current_companies), 1])
 
@@ -149,10 +161,10 @@ class CrossSectionCorrelation(Signal):
         for ticker_index, ticker in enumerate(current_companies):
             conditional_mu, conditional_sigma = self._computeProbabilityDistributionGaussian(ticker_index,
                                                                                              r_future)
-            
+
             signalMean[ticker_index], signalReverted[ticker_index] = self.computeSignal(conditional_mu,
-                                                          conditional_sigma,
-                                                          moved[ticker_index])
+                                                                                        conditional_sigma,
+                                                                                        moved[ticker_index])
 
         return signalMean, signalReverted
 
@@ -184,7 +196,7 @@ class CrossSectionCorrelation(Signal):
         sigma1 = np.sqrt(self.initial_sigma[index, 0] - np.dot(rho, np.dot(H_inv, rho.T))[0, 0])
         mumu = self.mu[idx]
 
-        mu1 = self.mu[index, 0] + np.dot(rho, np.dot(H_inv, (np.mean(r_other, axis=1) - mumu)))[0, 0]
+        mu1 = self.mu[index, 0] + np.dot(rho, np.dot(H_inv, (np.mean(r_other, axis=1).reshape([-1, 1]) - mumu)))[0, 0]
         return n_step * mu1, np.sqrt(n_step) * sigma1
 
     @staticmethod
