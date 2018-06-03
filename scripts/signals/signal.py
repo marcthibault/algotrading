@@ -13,7 +13,8 @@ class Signal:
             self._compute(**kwargs)
             self._computed = True
             self.signal = self.signal.rename('signal')
-        return self.signal
+            self.signalReverted = self.signalReverted.rename('signalReverted')
+        return self.signal, self.signalReverted
 
     def compute(self, kwargs={}):
         if ~self._computed:

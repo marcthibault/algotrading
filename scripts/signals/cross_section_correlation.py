@@ -20,7 +20,7 @@ class CrossSectionCorrelation(Signal):
     def set_correlation_matrix(self, R):
         self.R = R
         n_stocks = R.shape[0]
-        R_inv = np.linalg.pinv(R)
+        R_inv = np.linalg.pinv(R, rcond=1e-3)
         for i in range(n_stocks):
             idx = np.concatenate((np.arange(0, i), np.arange(i + 1, n_stocks))).astype(np.int32)
             U = np.zeros([n_stocks, 2])
@@ -126,7 +126,7 @@ class CrossSectionCorrelation(Signal):
                                              for index_ticker, ticker in enumerate(current_companies)],
                                             newshape=[len(current_companies), 1])
 
-            signalMean, signalReverted = self.computeOneSignal(r_future)
+            signalMean, signalReverted = self.computeOneSignal(r_future, current_companies)
             self.data.loc[(current_date, list(current_companies)), "signal"] = signalMean
             self.data.loc[(current_date, list(current_companies)), "signalReverted"] = signalReverted
 
@@ -134,6 +134,7 @@ class CrossSectionCorrelation(Signal):
 
         self._computed = True
         self.signal = self.data.loc[:, "signal"]
+        self.signalReverted = self.data.loc[:, "signalReverted"]
 
     def computeOneSignal(self, r_future, current_companies):
         """
@@ -148,8 +149,8 @@ class CrossSectionCorrelation(Signal):
         for ticker_index, ticker in enumerate(current_companies):
             conditional_mu, conditional_sigma = self._computeProbabilityDistributionGaussian(ticker_index,
                                                                                              r_future)
-
-            signalMean[ticker_index] = self.computeSignal(conditional_mu,
+            
+            signalMean[ticker_index], signalReverted[ticker_index] = self.computeSignal(conditional_mu,
                                                           conditional_sigma,
                                                           moved[ticker_index])
 
