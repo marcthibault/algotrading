@@ -18,7 +18,7 @@ class FixedVolumeFilter(Filter):
 
         ## Case dates don't appear in the groupby, we have to unstack 
         ## To keep the original calendar, we have to do the rolling version as well
-        past_data_0 = self.data.adj_close.groupby(level=1).rolling(100, min_periods=1).count()
+        past_data_0 = self.data.adj_close.groupby(level=1).rolling(self.n_past, min_periods=1).count()
         past_data_0.index = past_data_0.index.droplevel(0)
         past_data_0 = past_data_0.sort_index(0)
         past_data = self.data.adj_close.unstack().rolling(self.n_past, min_periods=1).count().stack().sort_index(0)

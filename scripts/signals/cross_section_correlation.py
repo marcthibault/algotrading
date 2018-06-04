@@ -77,7 +77,7 @@ class CrossSectionCorrelation(Signal):
         self.data["signalReverted"] = np.nan
 
         self.fitter = {ticker: GarchFitter(self.n_past) for ticker in all_companies}
-        for k, fit_date in enumerate(tqdm_notebook(calendar[self.n_past:-self.n_fit])):
+        for k, fit_date in enumerate(tqdm(calendar[self.n_past:-self.n_fit])):
             start_fit_date = calendar[k]
             current_date = calendar[k + self.n_fit + self.n_past]
             print(current_date)
@@ -86,10 +86,18 @@ class CrossSectionCorrelation(Signal):
             temp_filter = (df1.loc[current_date, "filter"] == 1)
             current_companies = sorted(temp_filter.loc[temp_filter.values].index.values)
 
-            temp_prices = df1["adj_close"].unstack().loc[:, current_companies]
-            temp_prices = temp_prices.ffill().bfill()
-            p = temp_prices.values.T
-            r = np.log(p[:, 1:]) - np.log(p[:, :-1])
+            if 'past_perf_1d_beta' in df1:
+                r = df1['past_perf_1d_beta'].unstack().loc[:, current_companies]
+                r = r.fillna(0.0)
+                r = r.values.T
+            else:
+                r = df1['past_perf_1d'].unstack().loc[:, current_companies]
+                r = r.fillna(0.0)
+                r = r.values.T
+                # temp_prices = df1["adj_close"].unstack().loc[:, current_companies]
+                # temp_prices = temp_prices.ffill().bfill()
+                # p = temp_prices.values.T
+                # r = np.log(p[:, 1:]) - np.log(p[:, :-1])
             r_past = r[:, :self.n_past]
             r_future = r[:, self.n_past:]
 

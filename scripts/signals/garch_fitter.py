@@ -24,7 +24,7 @@ class GarchFitter(SeriesFitter):
     def fit(self, r):
         assert r.shape == (self.n_past,)
 
-        if False:
+        if True:
             am = arch_model(r, {'disp': False})
             if self.garch_fitted and False:
                 res = am.fit(disp="off", show_warning=False,
